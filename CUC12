@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guía Dinámica UDC - Bloque 12</title>
+    <!-- Carga de Tailwind CSS para estilos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de la librería de Google Gen AI -->
+    <script src="https://cdn.jsdelivr.net/npm/@google/generative-ai@latest/dist/index.umd.js"></script>
+    
+    <style>
+        /* Tipografía moderna y nítida */
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Space+Mono:wght@400;700&display=swap');
+        
+        html {
+            font-family: 'Space Mono', monospace; 
+        }
+        h1, h2 {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Colores de la paleta "Fiery Fusion" para Alto Contraste */
+        :root {
+            --color-neon-text: #FFFF00;
+            --color-neon-accent: #FF8C00;
+            --color-neon-shadow: #FF4500;
+            --color-panel-bg: #0c0c0c;
+        }
+
+        /* =========================
+           Botones modernos (pill)
+           ========================= */
+        @keyframes gradientMove {
+            0% { background-position: 0% 50% }
+            50% { background-position: 100% 50% }
+            100% { background-position: 0% 50% }
+        }
+
+        @keyframes pulseGlow {
+            from { box-shadow: 0 0 12px rgba(236,72,153,.55) }
+            to   { box-shadow: 0 0 28px rgba(236,72,153,.75) }
+        }
+
+        /* Estilos base para el modo de Alto Contraste (Predeterminado) */
+        .high-contrast {
+            background-color: #000000;
+            color: var(--color-neon-text);
+            position: relative; 
+        }
+        
+        /* Contenedor principal de la aplicación */
+        #app {
+            background-color: transparent; 
+            min-height: calc(100vh - 4rem); /* Menos el alto de la barra inferior */
+            display: none; /* Oculto al inicio */
+            padding-bottom: 4rem; /* Espacio para la barra de comandos */
+            overflow-y: auto;
+        }
+
+        /* Estilos de la Splash Screen */
+        #splash-screen {
+            background-color: #000000;
+            color: var(--color-neon-text);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 1000;
+            transition: opacity 0.5s ease;
+        }
+        
+        /* Barra de comandos fija en la parte inferior (estilo nativo) */
+        #bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4rem;
+            background-color: #000000;
+            border-top: 2px solid var(--color-neon-accent);
+            z-index: 50;
+        }
+
+        .high-contrast .input-field {
+            background-color: #1a1a1a;
+            color: var(--color-neon-text);
+            border: 2px solid var(--color-neon-accent);
+            box-shadow: 0 0 5px var(--color-neon-shadow);
+        }
+        .high-contrast .panel {
+            background-color: var(--color-panel-bg);
+            border: 2px solid var(--color-neon-text);
+            box-shadow: 0 0 10px rgba(255, 255, 0, 0.5); 
+            backdrop-filter: blur(5px); 
+        }
+        .high-contrast .bg-emergency { background-color: #FF0000; color: var(--color-neon-text); box-shadow: 0 0 10px #FF0000; }
+        .high-contrast .bg-incident { background-color: #FF8800; color: #000000; box-shadow: 0 0 8px #FF8800; }
+        .high-contrast .bg-stop { background-color: #880000; color: var(--color-neon-text); }
+        .high-contrast .text-secondary { color: var(--color-neon-accent); }
+        
+        /* --- CLASES DE BOTONES MODERNOS --- */
+        @layer components {
+            /* Base pill */
+            .btn {
+                @apply inline-flex items-center justify-center rounded-full gap-2
+                       px-6 py-3 font-semibold tracking-wide
+                       transition-all duration-200 select-none
+                       focus:outline-none focus-visible:ring-2 ring-offset-2
+                       active:scale-[.98];
+            }
+
+            /* Tamaños */
+            .btn-sm { @apply px-4 py-2 text-sm; }
+            .btn-lg { @apply px-7 py-4 text-xl; }
+
+            /* Estilos */
+            .btn-gradient {
+                @apply text-black shadow-lg shadow-orange-500/20;
+                background-image: linear-gradient(90deg,#f97316,#fb7185,#60a5fa);
+                background-size: 200% 200%;
+                animation: gradientMove 6s ease infinite;
+            }
+            .btn-gradient:hover { @apply shadow-orange-500/40; }
+
+            .btn-primary {
+                @apply bg-orange-500 text-black shadow-lg shadow-orange-500/25 hover:bg-orange-400;
+            }
+
+            .btn-outline {
+                @apply border-2 border-white/30 text-white/90 hover:bg-white/10;
+            }
+
+            .btn-ghost {
+                @apply bg-white/5 text-white/90 hover:bg-white/10;
+            }
+
+            /* Semánticos */
+            .btn-success {
+                @apply bg-emerald-400 text-black hover:bg-emerald-300 shadow-lg shadow-emerald-400/25;
+            }
+            .btn-danger {
+                @apply bg-rose-500 text-white hover:bg-rose-400 shadow-lg shadow-rose-500/30;
+            }
+            .btn-warning {
+                @apply bg-amber-400 text-black hover:bg-amber-300 shadow-lg shadow-amber-400/25;
+            }
+
+            /* Botón circular icon-only */
+            .btn-icon {
+                @apply rounded-full h-12 w-12 inline-flex items-center justify-center
+                       bg-white/10 hover:bg-white/20 text-white;
+            }
+
+            /* Estado “escuchando” (glow) */
+            .btn-listening {
+                @apply ring-2 ring-pink-400/70 shadow-[0_0_20px_rgba(236,72,153,.6)];
+                animation: pulseGlow 1s ease-in-out infinite alternate;
+            }
+        }
+
+        /* Accesibilidad: alto contraste sobre fondo negro */
+        .high-contrast .btn-outline { @apply border-yellow-300/60 text-yellow-200; }
+        .high-contrast .btn-ghost   { @apply text-yellow-200; }
+        .high-contrast .btn, .high-contrast .btn-gradient { @apply ring-yellow-300/40; }
+
+    </style>
+</head>
+<body class="high-contrast transition-colors duration-300">
+
+    <!-- 1. PANTALLA DE BIENVENIDA (SPLASH SCREEN) -->
+    <div id="splash-screen">
+        <img 
+            src="https://www.acofi.edu.co/wp-content/uploads/2013/10/UNIVERSIDAD-DE-LA-COSTA.png" 
+            alt="Logo Universidad de la Costa" 
+            class="h-24 w-auto mb-8 rounded-lg"
+        >
+        <h1 class="text-5xl font-bold mb-4 text-center">GUÍA DINÁMICA</h1>
+        <p class="text-2xl text-center font-medium mb-12">Bloque 12 - UDC</p>
+        <button id="start-splash-btn" class="btn btn-lg btn-gradient animate-pulse">
+            Toca para Iniciar
+        </button>
+    </div>
+
+    <!-- 2. INTERFAZ PRINCIPAL DE LA APLICACIÓN -->
+    <div id="app" class="p-4 flex flex-col items-center max-w-lg mx-auto">
+        <!-- Encabezado Fijo -->
+        <header class="w-full mb-6 mt-4">
+            <h1 class="text-4xl font-bold mb-2 text-center leading-tight">GUÍA DINÁMICA</h1>
+            <p class="text-xl text-center font-medium text-secondary mb-4">Navegación Asistida</p>
+        </header>
+
+        <!-- Estado de la Navegación -->
+        <main class="w-full flex-grow">
+            <div class="panel p-5 rounded-xl mb-6 border-accent">
+                <h2 class="text-3xl font-bold mb-3 text-center text-secondary">Estado Actual</h2>
+                <p id="current-state" class="text-2xl text-center leading-relaxed">...</p>
+            </div>
+
+            <!-- Panel de Entrada de Destino -->
+            <section id="destination-input" class="panel p-5 rounded-xl border-accent mb-6">
+                <h2 class="text-3xl font-bold mb-4 text-center text-secondary">Seleccionar Destino</h2>
+                
+                <div class="flex flex-col space-y-4">
+                    <!-- CAMPO DE TEXTO CON DATALIST INTEGRADO -->
+                    <input 
+                        type="text" 
+                        id="destination-text" 
+                        list="destinos" 
+                        placeholder="Ej: Sala de Dibujo 2 o 12702" 
+                        class="input-field w-full p-4 rounded-lg text-2xl"
+                    >
+                    <datalist id="destinos"></datalist>
+                    
+                    <!-- Botón para activar el reconocimiento de voz -->
+                    <button id="voice-input-btn" class="btn btn-lg btn-gradient w-full">
+                        <span id="mic-icon">🎤</span> Hablar Destino
+                    </button>
+
+                    <!-- Botón para iniciar la navegación (usa el texto del input) -->
+                    <button id="start-nav-btn" class="btn btn-lg btn-primary w-full">
+                        Iniciar Guía
+                    </button>
+                </div>
+            </section>
+
+            <!-- Panel de Guía Activa -->
+            <section id="active-guidance" class="panel p-5 rounded-xl border-accent hidden">
+                <h2 class="text-3xl font-bold mb-4 text-center text-secondary">Guía Activa: <span id="current-destination"></span></h2>
+                
+                <div class="space-y-4">
+                    <p id="instruction-text" class="text-2xl font-semibold text-center leading-relaxed text-yellow-400">Esperando instrucción...</p>
+                    
+                    <button id="simulate-scan-btn" class="btn btn-lg btn-gradient w-full">
+                        Simular Lectura QR/NFC (Nodo: <span id="current-node">N01</span>)
+                    </button>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="stop-nav-btn" class="btn btn-danger btn-sm w-full">
+                            Detener Guía
+                        </button>
+                        <button id="emergency-btn" class="btn btn-danger btn-sm w-full">
+                            🚨 Emergencia
+                        </button>
+                    </div>
+
+                    <button id="report-incident-btn" class="btn btn-warning w-full">
+                        Reportar Incidencia
+                    </button>
+                </div>
+            </section>
+            
+            <!-- Panel de Consultas del Asistente IA -->
+            <section id="gemini-query-section" class="panel p-5 rounded-xl border-accent mb-6">
+                <h2 class="text-3xl font-bold mb-4 text-center text-secondary">Asistente de Consulta</h2>
+                <div class="flex flex-col space-y-4">
+                    <input type="text" id="gemini-query-text" placeholder="Pregunta sobre el bloque 12 (ej. ¿Qué hay en el piso 4?)" class="input-field w-full p-4 rounded-lg text-xl">
+                    <button id="ask-gemini-btn" class="btn btn-primary w-full">
+                        ✨ Consultar IA
+                    </button>
+                </div>
+            </section>
+        </main>
+        
+        <!-- Barra de Comandos Inferior (Fija) -->
+        <div id="bottom-bar" class="w-full flex justify-around items-center px-4">
+            <!-- Los botones inferiores NO usan la clase 'btn-lg' para ser compactos -->
+            <button id="bottom-contrast-btn" class="btn btn-ghost btn-sm text-sm font-bold p-2 rounded-lg">
+                Contraste
+            </button>
+            <button id="bottom-stairs-btn" class="btn btn-ghost btn-sm text-sm font-bold p-2 rounded-lg">
+                Accesible (ON)
+            </button>
+            <button id="bottom-gemini-btn" class="btn btn-ghost btn-sm text-sm font-bold p-2 rounded-lg">
+                Asistente IA
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ====================================================================
+        // CONFIGURACIÓN DE DATOS DEL BLOQUE 12 (MAPA SIMULADO)
+        // ====================================================================
+
+        const destinationsRaw = {
+            "12501": { name: "Laboratorio de Química", floor: 0 },
+            "12502": { name: "Laboratorio de Biología y Microbiología", floor: 0 },
+            "12503": { name: "Laboratorio de Tecnología de Materiales Estructurales", floor: 0 },
+            "12504": { name: "Laboratorio de Resistencia de Materiales", floor: 0 },
+            "12505": { name: "Laboratorio Vivo", floor: 0 },
+            "12101": { name: "Laboratorio de Mecánica de Suelos", floor: 1 },
+            "12102": { name: "Laboratorio de Pavimentos", floor: 1 },
+            "12103": { name: "Laboratorio de Tecnología del Asfalto", floor: 1 },
+            "12104": { name: "Laboratorio de Gestión y Biorremediación de Suelos", floor: 1 },
+            "12105": { name: "Laboratorio de Espectrofotómetro de Absorción Atómica", floor: 1 },
+            "12201": { name: "Laboratorio de Robótica", floor: 2 },
+            "12202": { name: "Laboratorio de Topografía", floor: 2 },
+            "12203": { name: "Laboratorio de Hidráulica", floor: 2 },
+            "12204": { name: "Laboratorio de Mecánica de Fluidos", floor: 2 },
+            "12205": { name: "Laboratorio de Georreferenciación", floor: 2 },
+            "12206": { name: "Laboratorio de Producción y Logística", floor: 2 },
+            "12207": { name: "Laboratorio de Simulación de Procesos", floor: 2 },
+            "12208": { name: "Laboratorio de Investigación en Ciencias Naturales y Exactas", floor: 2 },
+            "12301": { name: "Laboratorio de Bioingeniería", floor: 3 },
+            "12302": { name: "Laboratorio de Control de Calidad", floor: 3 },
+            "12303": { name: "Laboratorio de Metrología", floor: 3 },
+            "12304": { name: "Laboratorio de Seguridad y Salud en el Trabajo", floor: 3 },
+            "12305": { name: "Laboratorio de Innovación", floor: 3 },
+            "12306": { name: "Laboratorio de Sistemas Eléctricos", floor: 3 },
+            "12307": { name: "Laboratorio de Electrónica Básica", floor: 3 },
+            "12401": { name: "Laboratorio de Máquinas Eléctricas", floor: 4 },
+            "12402": { name: "Laboratorio de Eficiencia", floor: 4 },
+            "12403": { name: "Laboratorio de Potencia", floor: 4 },
+            "12404": { name: "Laboratorio de Circuitos Eléctricos", floor: 4 },
+            "12404B": { name: "Laboratorio de Materiales y Manufactura", floor: 4 },
+            "12405": { name: "Laboratorio de Energías Renovables", floor: 4 },
+            "12406": { name: "Laboratorio de Redes Convergentes", floor: 4 },
+            "12407": { name: "Laboratorio de Automatización", floor: 4 },
+            "12501S": { name: "Sala de Audio", floor: 5 },
+            "12502S": { name: "Laboratorio de Desarrollo de Software", floor: 5 },
+            "12503S": { name: "Laboratorio de Aplicaciones Biomédicas", floor: 5 },
+            "12504S": { name: "Set de Grabación", floor: 5 },
+            "12505S": { name: "Laboratorio de Arquitectura de Hardware", floor: 5 },
+            "12506S": { name: "Laboratorio de Creatividad y Desarrollo Empresarial", floor: 5 },
+            "12601": { name: "Laboratorio de Química Ambiental", floor: 6 },
+            "12602": { name: "Laboratorio 04 de Física", floor: 6 },
+            "12603": { name: "Laboratorio de Toxicología Ambiental", floor: 6 },
+            "12604": { name: "Sala de Laboratoristas", floor: 6 },
+            "12605": { name: "Laboratorio 01 de Física", floor: 6 },
+            "12606": { name: "Laboratorio 02 de Física", floor: 6 },
+            "12607": { name: "Laboratorio 03 de Física", floor: 6 },
+            "12608": { name: "Laboratorio de Tratamiento de Aguas", floor: 6 },
+            "12701": { name: "Sala de Dibujo 1", floor: 7 },
+            "12702": { name: "Sala de Dibujo 2", floor: 7 },
+            "12703": { name: "Cámara de Gesell", floor: 7 },
+            "12704": { name: "Laboratorio de Psicofisiología Aplicada", floor: 7 },
+            "12705": { name: "Laboratorio de Psicometría", floor: 7 },
+            "12706": { name: "Laboratorio de Memoria y Aprendizaje", floor: 7 },
+            "12707": { name: "Laboratorio de Aplicación de Pruebas", floor: 7 },
+            "12708": { name: "Laboratorio de Neurociencia Cognitiva", floor: 7 },
+            "12709": { name: "Laboratorio de Telecomunicaciones", floor: 7 },
+            "12801": { name: "Laboratorio de Historia del Arte", floor: 8 },
+            "12802": { name: "Taller de Diseño", floor: 8 },
+            "12803": { name: "Laboratorio de Construcción", floor: 8 },
+            "12804": { name: "Laboratorio de Urbano Ambiental", floor: 8 },
+            "12805": { name: "Sala de Dibujo 3", floor: 8 },
+        };
+        
+        const mapData = {
+            nodes: {
+                "N01": { name: "Entrada Principal Bloque 12", instructions: { default: "Bienvenido a Guía Dinámica. Por favor, selecciona o di tu destino." } },
+                "N0A": { name: "Nodo Ascensor/Escaleras Planta Baja", instructions: { N01: { instruction: "Avanza 10 metros, recto, hasta el punto táctil. Gira a la derecha para el Ascensor.", vibration: "long" } } },
+                "N00": { name: "Nodo Pasillo Planta Baja", instructions: { N01: { instruction: "Avanza 15 metros, recto, hasta el punto táctil. Gira a la izquierda.", vibration: "long" } } },
+
+                "N1A": { name: "Salida Ascensor Piso 1", instructions: { N0A: { instruction: "Ha llegado al Piso 1. Al salir del ascensor, **gire a la derecha** y localice la placa táctil informativa en la pared. Esta placa en Braille y alto contraste le indicará la ubicación precisa de los salones y baños en este piso.", vibration: "long" } } },
+                "N2A": { name: "Salida Ascensor Piso 2", instructions: { N0A: { instruction: "Ha llegado al Piso 2. Al salir del ascensor, **gire a la derecha** y localice la placa táctil informativa en la pared. Esta placa en Braille y alto contraste le indicará la ubicación precisa de los salones y baños en este piso.", vibration: "long" } } },
+                "N3A": { name: "Salida Ascensor Piso 3", instructions: { N0A: { instruction: "Ha llegado al Piso 3. Al salir del ascensor, **gire a la derecha** y localice la placa táctil informativa en la pared. Esta placa en Braille y alto contraste le indicará la ubicación precisa de los salones y baños en este piso.", vibration: "long" } } },
+                "N4A": { name: "Salida Ascensor Piso 4", instructions: { N0A: { instruction: "Ha llegado al Piso 4. Al salir del ascensor, **gire a la derecha** y localice la placa táctil informativa en la pared. Esta placa en Braille y alto contraste le indicará la ubicación precisa de los salones y baños en este piso.", vibration: "long" } } },
+                "N5A": { name: "Salida Ascensor Piso 5", instructions: { N0A: { instruction: "Ha llegado al Piso 5. Al salir del ascensor, **gire a la derecha** y localice la placa táctil informativa en la pared. Esta placa en Braille y alto contraste le indicará la ubicación precisa de los salones y baños en este piso.", vibration: "long" } } },
+                "N6A": { name: "Salida Ascensor Piso 6", instructions: { N0A: { instruction: "Ha llegado al Piso 6. Al salir del ascensor, **gire a la derecha** y localice la placa táctil informativa en la pared. Esta placa en Braille y alto contraste le indicará la ubicación precisa de los salones y baños en este piso.", vibration: "long" } } },
+                "N7A": { name: "Salida Ascensor Piso 7", instructions: { N0A: { instruction: "Ha llegado al Piso 7. Al salir del ascensor, **gire a la derecha** y localice la placa táctil informativa en la pared. Esta placa en Braille y alto contraste le indicará la ubicación precisa de los salones y baños en este piso.", vibration: "long" } } },
+                "N8A": { name: "Salida Ascensor Piso 8", instructions: { N0A: { instruction: "Ha llegado al Piso 8. Al salir del ascensor, **gire a la derecha** y localice la placa táctil informativa en la pared. Esta placa en Braille y alto contraste le indicará la ubicación precisa de los salones y baños en este piso.", vibration: "long" } } },
+            }
+        };
+
+        const DEST_INDEX = {};
+        
+        // ====================================================================
+        // LLM (GEMINI) CONFIGURATION
+        // ====================================================================
+
+        const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=';
+        const apiKey = ""; // Canvas will inject the key
+
+        // ====================================================================
+        // UI ELEMENTS
+        // ====================================================================
+
+        const $body = document.body;
+        const $splashScreen = document.getElementById('splash-screen');
+        const $startSplashBtn = document.getElementById('start-splash-btn');
+        const $appContainer = document.getElementById('app');
+        const $currentState = document.getElementById('current-state');
+        const $destinationInput = document.getElementById('destination-input');
+        const $activeGuidance = document.getElementById('active-guidance');
+        const $destinationText = document.getElementById('destination-text');
+        const $startNavBtn = document.getElementById('start-nav-btn');
+        const $simulateScanBtn = document.getElementById('simulate-scan-btn');
+        const $stopNavBtn = document.getElementById('stop-nav-btn');
+        const $emergencyBtn = document.getElementById('emergency-btn');
+        const $reportIncidentBtn = document.getElementById('report-incident-btn');
+        const $toggleContrastBtn = document.getElementById('toggle-contrast-btn'); // Top button
+        const $toggleStairsBtn = document.getElementById('toggle-stairs-btn');   // Top button
+        const $voiceInputBtn = document.getElementById('voice-input-btn');
+        const $currentDestination = document.getElementById('current-destination');
+        const $currentNodeDisplay = document.getElementById('current-node');
+        const $instructionText = document.getElementById('instruction-text');
+        const $destinosDatalist = document.getElementById('destinos');
+        const $bottomContrastBtn = document.getElementById('bottom-contrast-btn');
+        const $bottomStairsBtn = document.getElementById('bottom-stairs-btn');
+        const $bottomGeminiBtn = document.getElementById('bottom-gemini-btn');
+        const $geminiQueryText = document.getElementById('gemini-query-text');
+        const $askGeminiBtn = document.getElementById('ask-gemini-btn');
+        const $geminiQuerySection = document.getElementById('gemini-query-section');
+
+        let state = {
+            isGuiding: false,
+            destination: null,
+            route: [],
+            currentStepIndex: 0,
+            currentNodeKey: 'N01',
+            stairsAvoidance: true,
+            highContrast: true
+        };
+        const userFloor = 0; // Se asume que el usuario inicia siempre en la Planta Baja
+
+        // ====================================================================
+        // UTILS
+        // ====================================================================
+
+        function normalize(text) {
+            if (typeof text !== 'string') return '';
+            return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, ' ');
+        }
+        
+        async function fetchWithExponentialBackoff(apiUrl, payload, maxRetries = 5, delay = 1000) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        return response.json();
+                    } else if (response.status === 429 || response.status >= 500) {
+                        // Retry on rate limit or server error
+                        if (i < maxRetries - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delay * (2 ** i)));
+                            continue;
+                        }
+                    }
+                    throw new Error(`API call failed with status: ${response.status}`);
+
+                } catch (error) {
+                    if (i < maxRetries - 1) {
+                        await new Promise(resolve => setTimeout(resolve, delay * (2 ** i)));
+                        continue;
+                    }
+                    throw error;
+                }
+            }
+        }
+        
+        // ====================================================================
+        // FUNCIONES DE ACCESIBILIDAD (VOZ Y VIBRACIÓN)
+        // ====================================================================
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'es-ES';
+                utterance.pitch = 1.0;
+                utterance.rate = 1.1;
+                speechSynthesis.cancel();
+                speechSynthesis.speak(utterance);
+            } else {
+                console.warn("Speech Synthesis no soportado.");
+            }
+        }
+
+        function vibrate(type) {
+            if ('vibrate' in navigator) {
+                switch (type) {
+                    case 'turn': navigator.vibrate([200, 100, 200]); break;
+                    case 'long': navigator.vibrate(800); break;
+                    default: navigator.vibrate(0); break;
+                }
+            } else {
+                console.warn("Vibration API no soportado.");
+            }
+        }
+
+        function updateInstruction(text) {
+            if ($instructionText) $instructionText.textContent = text;
+            speak(text);
+        }
+        
+        // ====================================================================
+        // LLM (GEMINI) FUNCTIONS
+        // ====================================================================
+
+        async function askGeminiForHelp() {
+            const query = $geminiQueryText.value.trim();
+            if (!query) {
+                speak("Por favor, ingrese su pregunta en el campo de texto.");
+                return;
+            }
+
+            const isGuidingTo = state.isGuiding ? `Actualmente guiando a: ${state.destination.name} (${state.destination.code}). Nodo actual: ${state.currentNodeKey}. ` : '';
+            
+            const systemPrompt = `Eres el asistente de voz contextual (Guía Dinámica) del Bloque 12 de la Universidad de la Costa (CUC). Tu objetivo es proporcionar información útil y concisa para ayudar a una persona con discapacidad visual a orientarse. Responde siempre en español, de forma clara, directa y auditiva. Utiliza la información de Google Search si es necesaria para contexto general, pero prioriza la ayuda de orientación. Máximo 50 palabras.`;
+
+            const userQuery = `${isGuidingTo} El usuario pregunta: ${query}. Genera una respuesta útil.`;
+            
+            if ($currentState) $currentState.textContent = "CONSULTANDO ASISTENTE IA... Por favor espere.";
+            if ($askGeminiBtn) {
+                $askGeminiBtn.disabled = true;
+                $askGeminiBtn.textContent = 'Consultando...';
+            }
+            
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            try {
+                const result = await fetchWithExponentialBackoff(`${GEMINI_API_URL}${apiKey}`, payload);
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || "Disculpa, no pude procesar la consulta en este momento.";
+                
+                if ($currentState) $currentState.textContent = `Respuesta del Asistente IA: ${text}`;
+                speak(text);
+                vibrate('long');
+
+            } catch (error) {
+                if ($currentState) $currentState.textContent = "Error al conectar con la IA. Intente de nuevo más tarde.";
+                speak("Error del sistema. No se pudo obtener la respuesta.");
+                console.error("Gemini API Error:", error);
+            } finally {
+                if ($askGeminiBtn) {
+                    $askGeminiBtn.disabled = false;
+                    $askGeminiBtn.textContent = '✨ Consultar IA';
+                }
+            }
+        }
+
+        // ====================================================================
+        // LÓGICA DE NAVEGACIÓN
+        // ====================================================================
+
+        function setupIndex() {
+            for (const code in destinationsRaw) {
+                const dest = destinationsRaw[code];
+                const normalizedName = normalize(dest.name);
+                const normalizedCode = normalize(code);
+                
+                const floorLabel = dest.floor === 0 ? "Planta Baja" : `Piso ${dest.floor}`;
+                const destinationNode = `D${code}`;
+                const elevatorNode = `N${dest.floor}A`;
+                const groundNode = 'N00';
+                
+                let route;
+                
+                if (dest.floor === 0) {
+                    route = [groundNode, destinationNode];
+                } else {
+                    route = ['N0A', elevatorNode, destinationNode];
+                }
+                
+                const finalDest = {
+                    code: code,
+                    name: dest.name,
+                    floor: dest.floor,
+                    floor_label: floorLabel,
+                    route: route,
+                    startNode: 'N01',
+                    destinationNode: destinationNode
+                };
+
+                DEST_INDEX[normalizedCode] = finalDest;
+                DEST_INDEX[normalizedName] = finalDest;
+                
+                mapData.nodes[destinationNode] = {
+                    name: `${dest.name} (${code})`,
+                    instructions: {
+                        [route[route.length - 2]]: {
+                            instruction: `Ha llegado a la sala ${dest.name} (${code}) en el ${floorLabel}. La puerta está a su derecha. Fin de la ruta.`,
+                            vibration: "long"
+                        }
+                    }
+                };
+            }
+        }
+        
+        function resolveDestinationFlexible(query) {
+            const q = normalize(query);
+            const allResults = [];
+            const resultKeys = {};
+            
+            if (DEST_INDEX[q]) return [DEST_INDEX[q]];
+
+            for (const key in DEST_INDEX) {
+                const dest = DEST_INDEX[key];
+                if (key.includes(q)) {
+                    if (!resultKeys[dest.code]) {
+                        allResults.push(dest);
+                        resultKeys[dest.code] = true;
+                    }
+                }
+            }
+            return allResults;
+        }
+
+        function iniciarGuia(dest) {
+            state.isGuiding = true;
+            state.destination = dest;
+            state.route = [...dest.route];
+            state.currentStepIndex = 0;
+            state.currentNodeKey = dest.startNode;
+            
+            if ($destinationInput) $destinationInput.classList.add('hidden');
+            if ($activeGuidance) $activeGuidance.classList.remove('hidden');
+            if ($currentDestination) $currentDestination.textContent = `${dest.name} - ${dest.floor_label}`;
+            if ($currentNodeDisplay) $currentNodeDisplay.textContent = state.currentNodeKey;
+
+            const initialInstruction = mapData.nodes[state.currentNodeKey].instructions.default;
+            updateInstruction(initialInstruction);
+
+            const msg = `Ruta a ${dest.name} iniciada en el ${dest.floor_label}. Por defecto, usaremos la ruta accesible. ${initialInstruction}`;
+            if ($currentState) $currentState.textContent = msg;
+            speak(msg);
+        }
+        
+        async function startNavigation() {
+            const raw = $destinationText.value;
+            if (!raw) {
+                speak("Por favor, ingrese o hable un destino primero.");
+                return;
+            }
+            
+            const posibles = resolveDestinationFlexible(raw);
+
+            if (posibles.length === 0) {
+                const msg = "No encontré un salón con ese nombre. Intente de nuevo o diga el número del salón.";
+                if ($currentState) $currentState.textContent = msg;
+                speak(msg);
+                vibrate("long");
+                return;
+            }
+
+            if (posibles.length > 1) {
+                const opciones = posibles.map(r => `${r.name} (${r.code})`).join(", ");
+                
+                const preguntaVisual = `MÚLTIPLES: Escoja uno y escriba su nombre o código completo: ${opciones}.`;
+                if ($currentState) $currentState.textContent = preguntaVisual;
+
+                const preguntaVoz = `Encontré varios salones. Por favor, escriba el nombre o código completo de su destino, como ${posibles[0].name} o ${posibles[0].code}.`;
+                speak(preguntaVoz);
+                return;
+            }
+
+            iniciarGuia(posibles[0]);
+        }
+
+        function simulateScan() {
+            if (!state.isGuiding) {
+                const msg = "Por favor, inicie una navegación primero.";
+                if ($currentState) $currentState.textContent = msg;
+                speak(msg);
+                vibrate('long');
+                return;
+            }
+
+            if (state.currentStepIndex >= state.route.length) {
+                updateInstruction("Ruta completada. Por favor, detenga la guía.");
+                vibrate('long');
+                return;
+            }
+
+            const nextNodeKey = state.route[state.currentStepIndex];
+            const previousNodeKey = state.currentStepIndex > 0 ? state.route[state.currentStepIndex - 1] : state.currentNodeKey;
+            const nextNode = mapData.nodes[nextNodeKey];
+            let instructionData;
+            
+            if (nextNode.instructions && nextNode.instructions[previousNodeKey]) {
+                instructionData = nextNode.instructions[previousNodeKey];
+            } else {
+                 instructionData = { 
+                     instruction: `Nodo táctil ${nextNodeKey} detectado. Avance recto 10 metros hasta el siguiente punto.`, 
+                     vibration: 'turn' 
+                 };
+                 if (nextNodeKey.includes('A')) {
+                    instructionData.instruction = `Nodo de Ascensor/Rampa en ${nextNode.name} detectado. Busque el ascensor y vaya al piso ${state.destination.floor}.`;
+                 }
+                 if (nextNodeKey.includes('00')) {
+                    instructionData.instruction = `Nodo de Pasillo Principal detectado. Avance 15 metros en este pasillo.`;
+                 }
+            }
+
+            state.currentNodeKey = nextNodeKey;
+            state.currentStepIndex++;
+
+            if ($currentNodeDisplay) $currentNodeDisplay.textContent = state.currentNodeKey;
+            updateInstruction(instructionData.instruction);
+            vibrate(instructionData.vibration);
+            
+            if (state.currentStepIndex === state.route.length) {
+                if ($currentState) $currentState.textContent = `¡Ruta completada! Destino: ${state.destination.name}`;
+            } else {
+                if ($currentState) $currentState.textContent = `Nodo Táctil ${state.currentNodeKey} detectado. Siguiente paso...`;
+            }
+        }
+
+        function stopNavigation() {
+            if (state.isGuiding) {
+                state.isGuiding = false;
+                state.destination = null;
+                state.route = [];
+                state.currentStepIndex = 0;
+                state.currentNodeKey = 'N01';
+                
+                if ($destinationInput) $destinationInput.classList.remove('hidden');
+                if ($activeGuidance) $activeGuidance.classList.add('hidden');
+                if ($currentState) $currentState.textContent = "Guía detenida. Inicie una nueva ruta.";
+                if ($destinationText) $destinationText.value = '';
+                updateInstruction("Esperando instrucción...");
+                speak("Guía de navegación detenida.");
+                vibrate('long');
+            }
+        }
+
+        function populateDatalist() {
+            if ($destinosDatalist) {
+                const fragment = document.createDocumentFragment();
+                const uniqueDestinations = Object.values(DEST_INDEX).filter((v,i,a)=> a.findIndex(t=>(t.code === v.code)) === i);
+                
+                uniqueDestinations.forEach(dest => {
+                    let optionCode = document.createElement('option');
+                    optionCode.value = dest.code;
+                    optionCode.textContent = `${dest.code} - ${dest.name}`;
+                    fragment.appendChild(optionCode);
+
+                    let optionName = document.createElement('option');
+                    optionName.value = dest.name;
+                    fragment.appendChild(optionName);
+                });
+
+                $destinosDatalist.appendChild(fragment);
+            }
+        }
+
+        // ====================================================================
+        // MANEJADORES DE EVENTOS
+        // ====================================================================
+
+        // Handlers para los botones superiores e inferiores
+        function toggleContrast() {
+            state.highContrast = !state.highContrast;
+            const text = state.highContrast ? 'Alto Contraste (ON)' : 'Alto Contraste (OFF)';
+            const bottomText = state.highContrast ? 'Contraste' : 'Contraste';
+            
+            if ($toggleContrastBtn) $toggleContrastBtn.textContent = text;
+            if ($bottomContrastBtn) $bottomContrastBtn.textContent = bottomText;
+            
+            if (state.highContrast) {
+                $body.classList.add('high-contrast');
+            } else {
+                $body.classList.remove('high-contrast');
+                $body.classList.remove('bg-gray-100', 'text-gray-800');
+                $body.classList.add('bg-gray-100', 'text-gray-800');
+            }
+            speak(`Modo de alto contraste ${state.highContrast ? 'activado' : 'desactivado'}.`);
+        }
+        
+        function toggleStairs() {
+            state.stairsAvoidance = !state.stairsAvoidance;
+            const text = state.stairsAvoidance ? 'Ruta Accesible (ON)' : 'Ruta con Escaleras (OFF)';
+            const bottomText = state.stairsAvoidance ? 'Accesible (ON)' : 'Accesible (OFF)';
+            
+            if ($toggleStairsBtn) $toggleStairsBtn.textContent = text;
+            if ($bottomStairsBtn) $bottomStairsBtn.textContent = bottomText;
+            
+            const msg = `Preferencia de ruta cambiada. Se prioriza ${state.stairsAvoidance ? 'rampas y ascensores' : 'escaleras'}.`;
+            speak(msg);
+            if ($currentState) $currentState.textContent = msg;
+        }
+
+        if ($toggleContrastBtn) $toggleContrastBtn.addEventListener('click', toggleContrast);
+        if ($bottomContrastBtn) $bottomContrastBtn.addEventListener('click', toggleContrast);
+        
+        if ($toggleStairsBtn) $toggleStairsBtn.addEventListener('click', toggleStairs);
+        if ($bottomStairsBtn) $bottomStairsBtn.addEventListener('click', toggleStairs);
+        
+        if ($bottomGeminiBtn) {
+            $bottomGeminiBtn.addEventListener('click', () => {
+                // Alternar visibilidad de la sección de consultas
+                if ($geminiQuerySection) $geminiQuerySection.classList.toggle('hidden');
+                $bottomGeminiBtn.classList.toggle('text-white');
+                speak($geminiQuerySection && $geminiQuerySection.classList.contains('hidden') ? "Asistente de consulta cerrado." : "Asistente de consulta abierto. ¿Qué desea saber?");
+            });
+        }
+
+        if ($startNavBtn) $startNavBtn.addEventListener('click', startNavigation);
+        if ($simulateScanBtn) $simulateScanBtn.addEventListener('click', simulateScan);
+        if ($stopNavBtn) $stopNavBtn.addEventListener('click', stopNavigation);
+        if ($askGeminiBtn) $askGeminiBtn.addEventListener('click', askGeminiForHelp);
+        if ($voiceInputBtn) {
+            $voiceInputBtn.addEventListener('click', () => {
+                 try {
+                    if (state.isGuiding) { stopNavigation(); }
+                    if (recognition) recognition.start();
+                } catch (e) {
+                    if (e.name !== 'InvalidStateError') {
+                        speak("La función de reconocimiento de voz no pudo iniciarse.");
+                    }
+                }
+            });
+        }
+        
+        // Handlers para emergencia e incidentes (igual que antes)
+        if ($emergencyBtn) {
+            $emergencyBtn.addEventListener('click', () => {
+                const emergencyMsg = "Modo de emergencia activado. La salida segura más cercana es en dirección contraria al pasillo central. Proceda con precaución.";
+                updateInstruction(emergencyMsg);
+                if ($currentState) $currentState.textContent = "ALERTA: Modo Emergencia Activado.";
+                vibrate('long');
+            });
+        }
+
+        if ($reportIncidentBtn) {
+            $reportIncidentBtn.addEventListener('click', () => {
+                const reportMsg = `Reporte de incidencia enviado: El QR ${state.currentNodeKey} no pudo ser leído, o hay un obstáculo. Un asistente está siendo notificado.`;
+                updateInstruction(reportMsg);
+                if ($currentState) $currentState.textContent = "Incidencia Reportada.";
+                vibrate('long');
+            });
+        }
+        
+        // Reconocimiento de Voz Setup
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'es-ES';
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                if ($voiceInputBtn) $voiceInputBtn.textContent = '🗣️ ESCUCHANDO... HABLE AHORA';
+                if ($voiceInputBtn) $voiceInputBtn.classList.add('btn-listening');
+                if ($currentState) $currentState.textContent = "ESCRIBIR O HABLAR DESTINO... ESCUCHANDO...";
+            };
+
+            recognition.onresult = (event) => {
+                const speechResult = event.results[0][0].transcript;
+                if ($destinationText) $destinationText.value = speechResult;
+                if ($currentState) $currentState.textContent = `Voz detectada: "${speechResult}". Presione Iniciar Guía.`;
+                speak(`Destino reconocido: ${speechResult}. Presione Iniciar Guía.`);
+                if (recognition) recognition.stop();
+            };
+
+            recognition.onerror = (event) => {
+                if ($voiceInputBtn) $voiceInputBtn.textContent = '🎤 Hablar Destino';
+                if ($voiceInputBtn) $voiceInputBtn.classList.remove('btn-listening');
+                if ($currentState) $currentState.textContent = `Error de voz: ${event.error}. Intente de nuevo.`;
+                speak("Error en el reconocimiento de voz. Intente de nuevo o escriba el destino.");
+            };
+
+            recognition.onend = () => {
+                if ($voiceInputBtn) $voiceInputBtn.textContent = '🎤 Hablar Destino';
+                if ($voiceInputBtn) $voiceInputBtn.classList.remove('btn-listening');
+            };
+
+        } else {
+            if ($voiceInputBtn) $voiceInputBtn.textContent = 'Voz no soportada';
+            if ($voiceInputBtn) $voiceInputBtn.disabled = true;
+        }
+
+        // ====================================================================
+        // LÓGICA DE INICIO Y BOOTSTRAP
+        // ====================================================================
+        
+        if ($startSplashBtn) {
+            $startSplashBtn.addEventListener('click', () => {
+                // 1. Ocultar Splash Screen
+                if ($splashScreen) $splashScreen.style.opacity = '0';
+                setTimeout(() => {
+                    if ($splashScreen) $splashScreen.style.display = 'none';
+                    // 2. Mostrar App
+                    if ($appContainer) $appContainer.style.display = 'flex';
+                    // 3. Iniciar mensaje de bienvenida
+                    if ($currentState) $currentState.textContent = mapData.nodes['N01'].instructions.default;
+                    speak(mapData.nodes['N01'].instructions.default);
+                }, 500); 
+            });
+        }
+
+
+        window.onload = function() {
+            setupIndex();
+            populateDatalist();
+            
+            // Asegurar que el botón de contraste inferior refleje el estado inicial
+            if ($bottomContrastBtn) $bottomContrastBtn.textContent = 'Contraste';
+            if ($bottomStairsBtn) $bottomStairsBtn.textContent = 'Accesible (ON)';
+            if ($bottomGeminiBtn) $bottomGeminiBtn.textContent = 'Asistente IA';
+            
+            // Ocultar sección de Gemini por defecto
+            if ($geminiQuerySection) $geminiQuerySection.classList.add('hidden');
+        }
+
+    </script>
+</body>
+</html>
